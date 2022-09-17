@@ -4,46 +4,23 @@ import (
 	"io"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/gocrane/fadvisor/pkg/cache"
 )
 
 func TestRegisterCloudProvider(t *testing.T) {
-	var mu sync.Mutex
-	tests := []struct {
-		name     string
-		kindName ProviderKind
-		cloud    Factory
-		want     Factory
-	}{
-		{
-			name:     "base",
-			kindName: TencentCloud,
-		},
+	defer func() {
+		// clear up
+		defer providersMutex.Unlock()
+		providers = make(map[ProviderKind]Factory)
+	}()
+	RegisterCloudProvider(TencentCloud, mockFactory)
+	providersMutex.Lock()
+	_, ok := providers[TencentCloud]
+	if !ok {
+		t.Errorf("RegisterCloudProvider() = not found registered cloud")
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				// clear up
-				providersMutex.Lock()
-				defer providersMutex.Unlock()
-				providers = make(map[ProviderKind]Factory)
-			}()
-			RegisterCloudProvider(tt.kindName, tt.cloud)
-			mu.Lock()
-			defer mu.Unlock()
-			got, ok := providers[tt.kindName]
-			if !ok {
-				t.Errorf("RegisterCloudProvider() = not found registered cloud")
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetCloudProvider() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-
 }
 
 type mockCloud struct {
